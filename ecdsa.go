@@ -10,23 +10,20 @@ import (
 
 var curve = elliptic.P256()
 
-func NewKeyPair() ([64]byte, [32]byte, error) {
+func NewKeyPair() ([]byte, []byte, error) {
 	privateKey, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
 		fmt.Println(err)
-		return [64]byte{}, [32]byte{}, err
+		return []byte{}, []byte{}, err
 	}
 
-	var pubkey [64]byte
-	var privkey [32]byte
-	copy(pubkey[:32], privateKey.X.Bytes())
-	copy(pubkey[32:], privateKey.Y.Bytes())
-	copy(privkey[:], privateKey.D.Bytes())
+	pubkey := append(privateKey.X.Bytes(), privateKey.Y.Bytes()...)
+	privkey := privateKey.D.Bytes()
 
 	return pubkey, privkey, nil
 }
 
-func Sign(publicKey [64]byte, privateKey [32]byte, data []byte) ([64]byte, error) {
+func Sign(publicKey []byte, privateKey []byte, data []byte) ([]byte, error) {
 	privkey := ecdsa.PrivateKey{}
 	privkey.Curve = curve
 	privkey.X, privkey.Y, privkey.D = big.NewInt(0), big.NewInt(0), big.NewInt(0)
@@ -37,23 +34,21 @@ func Sign(publicKey [64]byte, privateKey [32]byte, data []byte) ([64]byte, error
 
 	r, s, err := ecdsa.Sign(rand.Reader, &privkey, data)
 	if err != nil {
-		return [64]byte{}, err
+		return []byte{}, err
 	}
 
-	var encoded [64]byte
-	copy(encoded[:32], r.Bytes())
-	copy(encoded[32:], s.Bytes())
+	encoded := append(r.Bytes(), s.Bytes()...)
 	return encoded, nil
 }
 
-func Verify(publicKey [64]byte, data []byte, encodedData [64]byte) bool {
+func Verify(publicKey []byte, data []byte, encodedData []byte) bool {
 	pubkey := ecdsa.PublicKey{Curve: curve, X: big.NewInt(0), Y: big.NewInt(0)}
-	pubkey.X.SetBytes(publicKey[:32])
-	pubkey.Y.SetBytes(publicKey[32:])
+	pubkey.X.SetBytes(publicKey[:len(publicKey)/2])
+	pubkey.Y.SetBytes(publicKey[len(publicKey)/2:])
 
 	r, s := big.NewInt(0), big.NewInt(0)
-	r.SetBytes(encodedData[:32])
-	s.SetBytes(encodedData[32:])
+	r.SetBytes(encodedData[:len(encodedData)/2])
+	s.SetBytes(encodedData[len(encodedData)/2:])
 
 	return ecdsa.Verify(&pubkey, data, r, s)
 }
